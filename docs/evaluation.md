@@ -9,7 +9,7 @@ This is a reproducible starting set, separate from the repository and from the i
 | `shepard-1.jpg` | Alan Shepard | [1960 portrait](https://commons.wikimedia.org/wiki/File:Alan_Shepard_in_1960.jpg) | `3f8ef484565605683cfe5b4aec510c165afafbfe00477899faecfb521a097488` |
 | `shepard-2.jpg` | Alan Shepard | [1962 portrait](https://commons.wikimedia.org/wiki/File:Alan_Shepard_1962_NASA_portrait.jpg) | `53d716f08d301b30894a6c1a00ffa1f21a6c6af03a9a4121b073f8c354ad75e0` |
 
-The tested Commons files were downloaded through `Special:FilePath` with `?width=600`; the service returned 960-pixel-wide JPEGs. Verify hashes because downloads or resizing may change. Keep the collection and labels in user-controlled storage.
+The tested Commons files were downloaded through `Special:FilePath` with `?width=600`; the service returned 960-pixel-wide JPEGs. Verify hashes because downloads or resizing may change. Keep the collection and labels in user-controlled storage. To fetch the exact tested bytes into a new directory, explicitly run `python3 scripts/fetch_evaluation_set.py /path/to/new-evaluation-directory`. This separate development script makes network requests, verifies each SHA-256, and refuses an existing destination; the CLI itself does not use it. If a source changes or a download fails, the newly created directory may contain a partial set.
 
 ## Observed run
 
