@@ -29,3 +29,22 @@ This set is far too small and homogeneous to estimate real-world recognition acc
 ## Synthetic scale check
 
 On the same host, a release build scanned 1,000 distinct paths containing identical one-pixel PNGs into a fresh library, then scanned the directory again. The first run reported 1,000 processed and 1,000 no-face images in 8.04 seconds; the second reported 1,000 skipped and zero processed in 0.22 seconds. `/usr/bin/time -l` reported CLI-process maximum resident set sizes of 42,008,576 and 20,922,368 bytes respectively. Each result is one run and excludes any memory in separate system services. These tiny identical images exercise traversal, persistence and skip behavior; they are not representative of full-resolution photos, facial inference, clustering accuracy, or production throughput.
+
+## Repeated-portrait scale check
+
+On the same host and release build, 1,000 unique paths were created as hard links to the four labeled portraits above (250 paths per image). A fresh scan processed all 1,000 with no reported failures or no-face images, and produced two clusters of 500 faces each. A subsequent scan skipped all 1,000. `/usr/bin/time -l` reported 45.68 seconds and 934,166,528 bytes maximum resident set size for the first CLI process, and 0.25 seconds and 21,250,048 bytes for the repeat. This single run excludes separate system-service memory and uses only two identities and four source images; it is a load check, not a representative accuracy or performance estimate. The high first-run process memory is relevant when sizing larger jobs and has not been profiled further.
+
+The paths were hard links, not 1,000 distinct photographic inputs. On a filesystem that supports hard links, this Python fragment creates the test inputs from a directory containing exactly the four labeled images:
+
+```python
+from pathlib import Path
+import os
+source = Path('/path/to/four-labeled-images')
+destination = Path('/path/to/empty-test-directory')
+photos = sorted(source.iterdir())
+for n in range(1000):
+    image = photos[n % len(photos)]
+    os.link(image, destination / f'{n:04d}{image.suffix}')
+```
+
+Use a fresh library, time a scan and a repeat with the commands above, then inspect `people list --json`. Do not generalize results from duplicate portraits to real-world collections.
