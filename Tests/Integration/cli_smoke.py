@@ -112,6 +112,12 @@ with tempfile.TemporaryDirectory(prefix="a-facegroup-integration-") as tmp:
     broken.write_bytes(b"not an image")
     failed = run("scan", photos, success=False)
     assert len(failed["failures"]) == 1, failed
+    human_failure = subprocess.run([str(binary), "scan", str(photos)], env=env, capture_output=True, text=True, timeout=120)
+    assert human_failure.returncode != 0 and str(broken) not in human_failure.stdout and str(broken) in human_failure.stderr
+    quiet_failure = subprocess.run([str(binary), "scan", str(photos), "--quiet"], env=env, capture_output=True, text=True, timeout=120)
+    assert quiet_failure.returncode != 0 and not quiet_failure.stdout and str(broken) in quiet_failure.stderr
+    json_failure = subprocess.run([str(binary), "scan", str(photos), "--json"], env=env, capture_output=True, text=True, timeout=120)
+    assert json_failure.returncode != 0 and len(json.loads(json_failure.stdout)["failures"]) == 1 and str(broken) in json_failure.stderr
     assert run("people", "list")["people"], "A failed asset hid the successful gallery"
     pending = next(a for a in read_manifest()["assets"] if a["path"] == str(broken))
     assert pending["pending"] is True

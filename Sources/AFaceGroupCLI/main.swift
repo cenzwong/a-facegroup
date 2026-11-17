@@ -61,8 +61,11 @@ func output<T: Encodable>(_ value: T, json: Bool, quiet: Bool, stdoutFD: Int32, 
         case "scan":
             guard positional.count == 1 else { throw Failure("Usage: scan <directory>") }
             let service = try FaceService(directory: directory); let result = try await service.scan(URL(fileURLWithPath: positional[0]), force: force)
-            try output(result, json: json, quiet: quiet, stdoutFD: stdoutFD) { "Processed: \(result.processed), skipped: \(result.skipped), no faces: \(result.noFaces), failed: \(result.failures.count)\n" + result.failures.joined(separator: "\n") }
-            if !result.failures.isEmpty { exit(1) }
+            try output(result, json: json, quiet: quiet, stdoutFD: stdoutFD) { "Processed: \(result.processed), skipped: \(result.skipped), no faces: \(result.noFaces), failed: \(result.failures.count)" }
+            if !result.failures.isEmpty {
+                for failure in result.failures { fputs("error: \(failure)\n", stderr) }
+                exit(1)
+            }
         case "people":
             guard positional.count == 1 && positional[0] == "list" || positional.count == 2 && positional[0] == "photos" else { throw Failure("Usage: people list | people photos <person-id>") }
             let people = try await FaceService(directory: directory).people()
