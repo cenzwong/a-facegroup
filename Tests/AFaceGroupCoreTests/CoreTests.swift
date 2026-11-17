@@ -68,4 +68,19 @@ final class CoreTests: XCTestCase {
         XCTAssertTrue(try JSONDecoder().decode(Asset.self, from: old).isPending)
     }
 
+    @MainActor func testCancelledScanStopsBeforeCreatingPendingAssets() async throws {
+        let root = try temporary()
+        let photos = root.appendingPathComponent("photos")
+        try FileManager.default.createDirectory(at: photos, withIntermediateDirectories: true)
+        let library = root.appendingPathComponent("library")
+        let scan = Task { @MainActor in
+            let service = try FaceService(directory: library)
+            return try await service.scan(photos, force: false)
+        }
+        scan.cancel()
+        do { _ = try await scan.value; XCTFail("Expected cancellation") }
+        catch is CancellationError { }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: library.appendingPathComponent("manifest.json").path))
+    }
+
 }

@@ -2,7 +2,7 @@ import Foundation
 import MediaIntelligence
 
 public struct Person: Codable { public let id: String; public let faceCount: Int; public let photoCount: Int; public let paths: [String] }
-public struct ScanResult: Codable { public var processed = 0; public var skipped = 0; public var failures: [String] = []; public var noFaces = 0 }
+public struct ScanResult: Codable, Sendable { public var processed = 0; public var skipped = 0; public var failures: [String] = []; public var noFaces = 0 }
 public struct Identification: Codable { public let entityID: String?; public let matched: Bool }
 public final class FaceService {
     private let analyzer: FaceGroupAnalyzer
@@ -27,9 +27,11 @@ public final class FaceService {
         }
     }
     public func scan(_ root: URL, force: Bool) async throws -> ScanResult {
+        try Task.checkCancellation()
         let root = canonical(root); let urls = try discover(root); var result = ScanResult()
         if !manifest.scanRoots.contains(root.path) { manifest.scanRoots.append(root.path); try manifest.save(manifestURL) }
         for url in urls {
+            try Task.checkCancellation()
             let existing = manifest.assets.first { $0.path == url.path }
             do {
                 var asset = try metadata(url, id: existing?.id ?? UUID().uuidString)
@@ -41,18 +43,25 @@ public final class FaceService {
                 let input = MediaIntelligenceImageAsset(id: .init(asset.id), kind: .url(url))
                 // Give each ingestion operation its own task lifetime so framework
                 // image buffers can be released before processing the next asset.
-                let count = try await Task { [analyzer, input] in
-                    var count: Int?
-                    for try await (_, faces) in try await analyzer.insertOrUpdateAssets([input]) { count = faces.count }
-                    guard let count else { throw Failure("Analyzer returned no result") }
+                let count = try await withThrowingTaskGroup(of: Int.self) { group in
+                    group.addTask { [analyzer, input] in
+                        var count: Int?
+                        for try await (_, faces) in try await analyzer.insertOrUpdateAssets([input]) { count = faces.count }
+                        guard let count else { throw Failure("Analyzer returned no result") }
+                        return count
+                    }
+                    guard let count = try await group.next() else { throw Failure("Analyzer returned no result") }
                     return count
-                }.value
+                }
+                try Task.checkCancellation()
                 asset.faceCount = count
                 if let index = manifest.assets.firstIndex(where: { $0.id == asset.id }) { manifest.assets[index] = asset }
                 try manifest.save(manifestURL); result.processed += 1
                 if asset.faceCount == 0 { result.noFaces += 1 }
-            } catch { result.failures.append("\(url.path): \(error.localizedDescription)") }
+            } catch is CancellationError { throw CancellationError() }
+            catch { result.failures.append("\(url.path): \(error.localizedDescription)") }
         }
+        try Task.checkCancellation()
         try await update(); return result
     }
     public func people() async throws -> [Person] {
