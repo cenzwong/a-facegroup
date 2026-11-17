@@ -4,6 +4,7 @@ import MediaIntelligence
 public struct Person: Codable { public let id: String; public let faceCount: Int; public let photoCount: Int; public let paths: [String] }
 public struct ScanResult: Codable, Sendable { public var processed = 0; public var skipped = 0; public var failures: [String] = []; public var noFaces = 0 }
 public struct Identification: Codable { public let entityID: String?; public let matched: Bool }
+public struct PendingRemoval: Codable { public let path: String; public let assetID: String; public let applied: Bool }
 public final class FaceService {
     private let analyzer: FaceGroupAnalyzer
     private let manifestURL: URL
@@ -67,11 +68,33 @@ public final class FaceService {
     // A pending asset may still have old or partially inserted faces in Apple's
     // gallery. Do not present clusters or matches influenced by uncertain data.
     private func requireConsistentGallery() async throws {
-        let pending = Set(manifest.assets.filter(\.isPending).map(\.id))
+        let pending = manifest.assets.filter(\.isPending)
         guard !pending.isEmpty else { return }
-        for try await id in analyzer.allAssetIDs where pending.contains(id.rawValue) {
-            throw Failure("An interrupted or failed asset still has gallery data; restore it and rescan before listing, identifying, or exporting")
+        let paths = Dictionary(uniqueKeysWithValues: pending.map { ($0.id, $0.path) })
+        for try await id in analyzer.allAssetIDs {
+            if let path = paths[id.rawValue] {
+                throw Failure("Pending asset still has gallery data: \(path). Restore and rescan it, or preview removal with forget-pending")
+            }
         }
+    }
+    /// Explicitly discard only a pending asset's stored analysis, never its source file.
+    public func forgetPending(_ url: URL, apply: Bool) async throws -> PendingRemoval {
+        let path = canonical(url).path
+        guard let index = manifest.assets.firstIndex(where: { $0.path == path && $0.isPending }) else {
+            throw Failure("No pending asset at: \(path)")
+        }
+        let asset = manifest.assets[index]
+        if apply {
+            let id = MediaIntelligenceImageAsset.ID(asset.id)
+            var exists = false
+            for try await stored in analyzer.allAssetIDs where stored == id { exists = true; break }
+            // If an earlier attempt deleted it but stopped before saving the
+            // manifest, finish recovery without requiring the asset to exist.
+            if exists { try await analyzer.deleteAssets([id]) }
+            manifest.assets.remove(at: index)
+            try manifest.save(manifestURL)
+        }
+        return PendingRemoval(path: path, assetID: asset.id, applied: apply)
     }
     public func people() async throws -> [Person] {
         try await requireConsistentGallery()

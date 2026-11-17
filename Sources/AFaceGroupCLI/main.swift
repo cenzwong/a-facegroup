@@ -9,9 +9,10 @@ Usage: a-facegroup <command> [options]
   people list [--json] [--quiet]
   people photos <person-id> [--json] [--quiet]
   identify <image> [--json] [--quiet]
+  forget-pending <path> [--apply] [--json] [--quiet]
   export <directory> [--mode copy|symlink] [--apply] [--json] [--quiet]
   --help  --version
-Scans recurse without following symlinks. Export is preview-only unless --apply is given.
+Scans recurse without following symlinks. Export and pending-asset removal require --apply.
 """
 struct PeopleOutput: Encodable { let people: [Person]; let totalPeople: Int }
 struct PhotosOutput: Encodable { let personID: String; let photos: [String] }
@@ -47,7 +48,7 @@ func output<T: Encodable>(_ value: T, json: Bool, quiet: Bool, stdoutFD: Int32, 
             }
         }
         guard ["copy", "symlink"].contains(mode) else { throw Failure("Mode must be copy or symlink") }
-        guard (command == "scan" || (!force && !recursive)), (command == "export" || (!apply && mode == "copy")) else { throw Failure("Option is not valid for \(command)") }
+        guard (command == "scan" || (!force && !recursive)), (command == "export" || (mode == "copy" && (command == "forget-pending" || !apply))) else { throw Failure("Option is not valid for \(command)") }
         let data = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("a-facegroup", isDirectory: true)
         // A custom location makes separate libraries and isolated testing possible.
         let directory = ProcessInfo.processInfo.environment["AFACEGROUP_HOME"].map { URL(fileURLWithPath: $0, isDirectory: true) } ?? data
@@ -71,6 +72,11 @@ func output<T: Encodable>(_ value: T, json: Bool, quiet: Bool, stdoutFD: Int32, 
             guard positional.count == 1 else { throw Failure("Usage: identify <image>") }
             let faces = try await FaceService(directory: directory).identify(URL(fileURLWithPath: positional[0]))
             try output(IdentifyOutput(faces: faces, totalFaces: faces.count), json: json, quiet: quiet, stdoutFD: stdoutFD) { faces.isEmpty ? "No faces detected" : faces.map { $0.entityID ?? "unmatched" }.joined(separator: "\n") }
+        case "forget-pending":
+            guard positional.count == 1 else { throw Failure("Usage: forget-pending <path> [--apply]") }
+            let service = try FaceService(directory: directory)
+            let result = try await service.forgetPending(URL(fileURLWithPath: positional[0]), apply: apply)
+            try output(result, json: json, quiet: quiet, stdoutFD: stdoutFD) { (apply ? "Removed analysis for: " : "Preview removal of pending analysis: ") + result.path }
         case "export":
             guard positional.count == 1 else { throw Failure("Usage: export <directory>") }
             let service = try FaceService(directory: directory); let plan = try await service.planExport(URL(fileURLWithPath: positional[0]))
