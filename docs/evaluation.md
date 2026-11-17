@@ -48,3 +48,7 @@ for n in range(1000):
 ```
 
 Use a fresh library, time a scan and a repeat with the commands above, then inspect `people list --json`. Do not generalize results from duplicate portraits to real-world collections.
+
+A follow-up sampled CLI RSS every 0.5 seconds while the same 1,000-path fixture was scanned into another fresh library. The maximum sampled RSS was 1,291,728 KiB; the largest sampled values in successive 0–249, 250–499, 500–749, and 750–999 recorded-asset ranges were 438,384, 824,512, 1,207,616, and 1,291,728 KiB. The increasing samples occurred during ingestion, before the final grouping call. Sampling can miss the actual peak, and this does not identify which component retained memory.
+
+An isolated, uncommitted experiment reopened the analyzer after every 50 processed assets. It completed with the same cluster counts but reached 1,609,248 KiB sampled RSS. These are single sequential runs with uncontrolled cache and system conditions, so they do not establish a comparative benchmark; reopening did not demonstrate a memory improvement and is not used by the CLI. Profiling on a representative collection is still needed to understand memory growth.
