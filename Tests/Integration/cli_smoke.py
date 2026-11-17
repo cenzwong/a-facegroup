@@ -61,7 +61,9 @@ with tempfile.TemporaryDirectory(prefix="a-facegroup-integration-") as tmp:
     assert retried["processed"] == 1 and read_manifest()["assets"][0]["id"] == asset_id
     original = hashlib.sha256(image.read_bytes()).digest()
     # Add a second asset and a no-face image, then reopen and regroup.
-    second_image = photos / "second.png"
+    nested = photos / "nested"
+    nested.mkdir()
+    second_image = nested / "portrait.png"
     shutil.copyfile(portrait, second_image)
     no_face = photos / "blank.png"
     no_face.write_bytes(base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/a1sAAAAASUVORK5CYII="))
@@ -70,7 +72,7 @@ with tempfile.TemporaryDirectory(prefix="a-facegroup-integration-") as tmp:
     people = run("people", "list")["people"]
     assert len(people) >= 1, people
     person = next(p for p in people if str(image) in p["paths"])
-    assert person["face_count"] >= 1 and person["photo_count"] >= 1
+    assert person["face_count"] >= 2 and person["photo_count"] >= 2 and str(second_image) in person["paths"], person
     assert str(image) in run("people", "photos", person["id"])["photos"]
     text_list = subprocess.run([str(binary), "people", "list"], env=env, capture_output=True, text=True, timeout=120, check=True)
     assert person["id"] in text_list.stdout and "faces:" in text_list.stdout
@@ -88,7 +90,9 @@ with tempfile.TemporaryDirectory(prefix="a-facegroup-integration-") as tmp:
     assert not preview["applied"] and not destination.exists()
     text_preview = subprocess.run([str(binary), "export", str(destination)], env=env, capture_output=True, text=True, timeout=120, check=True)
     assert "Preview:" in text_preview.stdout and str(image) in text_preview.stdout and not destination.exists()
-    assert any(i["source"] == str(image) for i in preview["items"])
+    same_name = [i for i in preview["items"] if i["source"] in {str(image), str(second_image)}]
+    assert len(same_name) == 2 and len({i["destination"] for i in same_name}) == 2, same_name
+    assert len({Path(i["destination"]).parent for i in same_name}) == 1, same_name
     assert any(i["source"] == str(no_face) and "/No_Faces/" in i["destination"] for i in preview["items"])
     occupied = Path(preview["items"][0]["destination"])
     occupied.parent.mkdir(parents=True, exist_ok=True)
@@ -97,7 +101,7 @@ with tempfile.TemporaryDirectory(prefix="a-facegroup-integration-") as tmp:
     assert str(occupied) not in {item["destination"] for item in replanned["items"]}
     written = run("export", destination, "--apply")
     assert occupied.is_symlink() and os.readlink(occupied) == "missing-target"
-    assert written["applied"] and all(Path(i["destination"]).is_file() for i in written["items"])
+    assert written["applied"] and all(Path(i["destination"]).read_bytes() == Path(i["source"]).read_bytes() for i in written["items"])
     links = run("export", root / "links", "--mode", "symlink", "--apply")
     assert all(Path(i["destination"]).is_symlink() for i in links["items"])
     broken = photos / "broken.jpg"
