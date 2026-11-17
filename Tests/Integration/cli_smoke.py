@@ -26,6 +26,13 @@ with tempfile.TemporaryDirectory(prefix="a-facegroup-integration-") as tmp:
         return json.loads(result.stdout)
     missing = subprocess.run([str(binary), "--json"], env=env, capture_output=True, text=True, timeout=120)
     assert missing.returncode != 0 and not missing.stdout and "Missing command" in missing.stderr
+    empty = root / "empty"
+    empty.mkdir()
+    empty_result = run("scan", empty)
+    assert empty_result["processed"] == 0 and empty_result["skipped"] == 0 and not empty_result["failures"], empty_result
+    (empty / "ignored.txt").write_text("not an image")
+    unsupported = run("scan", empty)
+    assert unsupported["processed"] == 0 and not unsupported["failures"], unsupported
     first = run("scan", photos)
     assert first["processed"] == 1 and not first["failures"], first
     second = run("scan", photos)
@@ -34,6 +41,9 @@ with tempfile.TemporaryDirectory(prefix="a-facegroup-integration-") as tmp:
     def read_manifest():
         return json.loads(manifest_path.read_text())
     asset_id = read_manifest()["assets"][0]["id"]
+    # A separate partial scan must not remove previously indexed photos.
+    assert run("scan", empty)["processed"] == 0
+    assert len(read_manifest()["assets"]) == 1 and read_manifest()["assets"][0]["id"] == asset_id
     # Replacing an existing photo must update its original asset, not add a new one.
     image.write_bytes(image.read_bytes() + b"\n")
     stale_export = subprocess.run([str(binary), "export", str(root / "stale-export"), "--apply", "--json"], env=env, capture_output=True, text=True, timeout=120)
