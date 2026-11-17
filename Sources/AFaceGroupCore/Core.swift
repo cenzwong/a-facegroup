@@ -60,6 +60,12 @@ public final class LibraryLock {
     deinit { flock(fd, LOCK_UN); close(fd) }
 }
 public struct ExportItem: Codable, Equatable { public let source: String; public let destination: String; public init(source: String, destination: String) { self.source = source; self.destination = destination } }
+private func pathOccupied(_ url: URL) throws -> Bool {
+    var info = stat()
+    if lstat(url.path, &info) == 0 { return true }
+    if errno == ENOENT { return false }
+    throw Failure("Cannot inspect export destination: \(url.path)")
+}
 public func exportPlan(destination: URL, groups: [String: [String]], scanRoots: [URL]) throws -> [ExportItem] {
     let dest = canonical(destination)
     for root in scanRoots where isWithin(dest, root) || isWithin(root, dest) { throw Failure("Export destination and source directories must not overlap") }
@@ -72,7 +78,7 @@ public func exportPlan(destination: URL, groups: [String: [String]], scanRoots: 
             let url = URL(fileURLWithPath: source); let name = url.lastPathComponent
             var target = dest.appendingPathComponent(group).appendingPathComponent(name)
             var n = 2
-            while used.contains(target.path.lowercased()) || FileManager.default.fileExists(atPath: target.path) {
+            while try used.contains(target.path.lowercased()) || pathOccupied(target) {
                 let ext = url.pathExtension; let stem = url.deletingPathExtension().lastPathComponent
                 target = dest.appendingPathComponent(group).appendingPathComponent("\(stem)-\(n)" + (ext.isEmpty ? "" : ".\(ext)")); n += 1
             }

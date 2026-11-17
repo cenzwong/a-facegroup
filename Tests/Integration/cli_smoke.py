@@ -90,7 +90,13 @@ with tempfile.TemporaryDirectory(prefix="a-facegroup-integration-") as tmp:
     assert "Preview:" in text_preview.stdout and str(image) in text_preview.stdout and not destination.exists()
     assert any(i["source"] == str(image) for i in preview["items"])
     assert any(i["source"] == str(no_face) and "/No_Faces/" in i["destination"] for i in preview["items"])
+    occupied = Path(preview["items"][0]["destination"])
+    occupied.parent.mkdir(parents=True, exist_ok=True)
+    occupied.symlink_to("missing-target")
+    replanned = run("export", destination)
+    assert str(occupied) not in {item["destination"] for item in replanned["items"]}
     written = run("export", destination, "--apply")
+    assert occupied.is_symlink() and os.readlink(occupied) == "missing-target"
     assert written["applied"] and all(Path(i["destination"]).is_file() for i in written["items"])
     links = run("export", root / "links", "--mode", "symlink", "--apply")
     assert all(Path(i["destination"]).is_symlink() for i in links["items"])

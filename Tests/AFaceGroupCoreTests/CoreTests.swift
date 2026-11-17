@@ -83,4 +83,14 @@ final class CoreTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: library.appendingPathComponent("manifest.json").path))
     }
 
+    func testExportAvoidsDanglingSymlinkCollision() throws {
+        let root = try temporary(); let group = root.appendingPathComponent("out/person")
+        try FileManager.default.createDirectory(at: group, withIntermediateDirectories: true)
+        let existing = group.appendingPathComponent("x.jpg")
+        try FileManager.default.createSymbolicLink(atPath: existing.path, withDestinationPath: "missing.jpg")
+        let plan = try exportPlan(destination: root.appendingPathComponent("out"), groups: ["person": ["/a/x.jpg"]], scanRoots: [])
+        XCTAssertEqual(URL(fileURLWithPath: plan[0].destination).lastPathComponent, "x-2.jpg")
+        XCTAssertEqual(try FileManager.default.destinationOfSymbolicLink(atPath: existing.path), "missing.jpg")
+    }
+
 }
