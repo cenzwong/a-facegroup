@@ -33,6 +33,7 @@ func output<T: Encodable>(_ value: T, json: Bool, quiet: Bool, stdoutFD: Int32, 
         guard !args.isEmpty else { throw Failure("Missing command; use --help") }
         let json = args.contains("--json"), quiet = args.contains("--quiet")
         args.removeAll { $0 == "--json" || $0 == "--quiet" }
+        guard !args.isEmpty else { throw Failure("Missing command; use --help") }
         let command = args.removeFirst()
         var mode = "copy", apply = false, force = false, recursive = false, positional: [String] = []
         while !args.isEmpty {
@@ -50,9 +51,11 @@ func output<T: Encodable>(_ value: T, json: Bool, quiet: Bool, stdoutFD: Int32, 
         let data = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("a-facegroup", isDirectory: true)
         // A custom location makes separate libraries and isolated testing possible.
         let directory = ProcessInfo.processInfo.environment["AFACEGROUP_HOME"].map { URL(fileURLWithPath: $0, isDirectory: true) } ?? data
-        // MediaIntelligence emits diagnostics on stdout; reserve stdout for results.
+        // MediaIntelligence prints face metadata to stdout. Discard it to keep output private and structured.
         let stdoutFD = dup(STDOUT_FILENO)
-        guard stdoutFD >= 0, dup2(STDERR_FILENO, STDOUT_FILENO) >= 0 else { throw Failure("Cannot redirect framework diagnostics") }
+        let nullFD = open("/dev/null", O_WRONLY)
+        guard stdoutFD >= 0, nullFD >= 0, dup2(nullFD, STDOUT_FILENO) >= 0 else { throw Failure("Cannot redirect framework output") }
+        close(nullFD)
         switch command {
         case "scan":
             guard positional.count == 1 else { throw Failure("Usage: scan <directory>") }

@@ -43,6 +43,6 @@ swift build
 swift test
 ```
 
-A no-face image was indexed and skipped on a subsequent run on macOS 27. Real-photo clustering accuracy, persistence, memory use and identification require testing with consented images on a compatible Mac; unit tests alone do not establish these properties. In the restricted sandbox, the Vision model failed to load and MediaIntelligence crashed; the scan succeeded outside it. See [architecture](docs/architecture.md) and [implementation plan](docs/plan.md).
+A native end-to-end smoke test on macOS 27 used a public-domain NASA portrait to check detection, regrouping, persistence, identification, and export. To repeat it with a licensed face portrait, run `python3 Tests/Integration/cli_smoke.py .build/debug/a-facegroup /path/to/portrait.png`. The test expects a detectable face and a compatible runtime; it does not measure recognition accuracy, throughput, or peak memory. GitHub Actions compiles the executable and tests with Xcode 27; a macOS 27 host is required to run them. In the restricted sandbox, the Vision model failed to load and MediaIntelligence crashed; the scan succeeded outside it. See [architecture](docs/architecture.md) and [implementation plan](docs/plan.md).
 
 Inspired by the UNIX philosophy and Arthur-Ficial's Apple-native CLI projects, including apfel and auge. a-facegroup is an independent open-source project and is not officially affiliated with those projects. MIT licensed.

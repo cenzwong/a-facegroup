@@ -1,0 +1,14 @@
+name: Build
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compile:
+    runs-on: xcode-27
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile executable and tests against macOS 27 SDK
+        run: swift build --build-tests

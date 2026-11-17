@@ -50,12 +50,12 @@ public final class FaceService {
         try await update(); return result
     }
     public func people() async throws -> [Person] {
-        guard !manifest.assets.contains(where: { $0.modified < 0 }) else { throw Failure("Library has incomplete assets; rescan their source directories before listing or exporting") }
-        try await update(); let paths = Dictionary(uniqueKeysWithValues: manifest.assets.map { ($0.id, $0.path) }); var people: [Person] = []
+        try await update(); let paths = Dictionary(uniqueKeysWithValues: manifest.assets.filter { $0.modified >= 0 }.map { ($0.id, $0.path) }); let knownIDs = Set(manifest.assets.map(\.id)); var people: [Person] = []
         for try await (id, faces) in analyzer.allFacesByEntityID {
-            let assetIDs = Set(faces.map { $0.assetID.rawValue }); let mapped = assetIDs.compactMap { paths[$0] }.sorted()
-            guard mapped.count == assetIDs.count else { throw Failure("Analyzer contains assets missing from manifest") }
-            people.append(Person(id: id.rawValue, faceCount: faces.count, photoCount: mapped.count, paths: mapped))
+            guard faces.allSatisfy({ knownIDs.contains($0.assetID.rawValue) }) else { throw Failure("Analyzer contains assets missing from manifest") }
+            let completeFaces = faces.filter { paths[$0.assetID.rawValue] != nil }
+            let assetIDs = Set(completeFaces.map { $0.assetID.rawValue }); let mapped = assetIDs.compactMap { paths[$0] }.sorted()
+            if !completeFaces.isEmpty { people.append(Person(id: id.rawValue, faceCount: completeFaces.count, photoCount: mapped.count, paths: mapped)) }
         }
         return people.sorted { $0.id < $1.id }
     }
