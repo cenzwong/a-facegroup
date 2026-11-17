@@ -10,5 +10,7 @@ jobs:
     runs-on: xcode-27
     steps:
       - uses: actions/checkout@v4
+      - name: Test offline evaluation logic
+        run: python3 -m unittest discover -s Tests/Evaluation -v
       - name: Compile executable and tests against macOS 27 SDK
         run: swift build --build-tests

@@ -24,6 +24,14 @@ AFACEGROUP_HOME=/path/to/new-library /usr/bin/time -l a-facegroup scan /path/to/
 AFACEGROUP_HOME=/path/to/new-library a-facegroup people list --json
 ```
 
+For a separately maintained set of single-person photos, label each canonical path with its known person in a JSON array, for example:
+
+```json
+[{"path": "/absolute/path/photo-a.jpg", "person": "person-a"}, {"path": "/absolute/path/photo-b.jpg", "person": "person-a"}]
+```
+
+Use a fresh library containing only those labeled photos, save `a-facegroup people list --json` to a file, then run `python3 scripts/evaluate_clusters.py labels.json people.json`. This offline tool counts false merge and split **pairs** among assigned photos and reports unassigned photos separately. It rejects unlabeled returned photos and photos in multiple clusters; it is not suitable for group photos or face-level ground truth. An unassigned photo may have failed, contain no detected face, or be otherwise absent; it is not the same as an unmatched face from `identify`. Assess identification separately with held-out images and report the dataset selection and known limits. `/usr/bin/time -l` measures the CLI process, not total system-service memory.
+
 This set is far too small and homogeneous to estimate real-world recognition accuracy. A representative, consented or appropriately licensed collection with varied people, poses, lighting, group photos, and unseen identification images is still needed; report its merges, splits, unmatched faces, throughput, and memory separately.
 
 ## Synthetic scale check
