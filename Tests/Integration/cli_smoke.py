@@ -57,6 +57,10 @@ with tempfile.TemporaryDirectory(prefix="a-facegroup-integration-") as tmp:
     state = read_manifest()
     state["assets"][0]["pending"] = True
     manifest_path.write_text(json.dumps(state))
+    # Old analyzer data must not be exposed while its manifest entry is pending.
+    for command in (["people", "list"], ["identify", str(image)], ["export", str(root / "pending-export")]):
+        pending_result = subprocess.run([str(binary), *command, "--json"], env=env, capture_output=True, text=True, timeout=120)
+        assert pending_result.returncode != 0 and not pending_result.stdout and "rescan" in pending_result.stderr, pending_result
     retried = run("scan", photos)
     assert retried["processed"] == 1 and read_manifest()["assets"][0]["id"] == asset_id
     original = hashlib.sha256(image.read_bytes()).digest()

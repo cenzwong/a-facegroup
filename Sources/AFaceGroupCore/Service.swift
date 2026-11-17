@@ -64,7 +64,17 @@ public final class FaceService {
         try Task.checkCancellation()
         try await update(); return result
     }
+    // A pending asset may still have old or partially inserted faces in Apple's
+    // gallery. Do not present clusters or matches influenced by uncertain data.
+    private func requireConsistentGallery() async throws {
+        let pending = Set(manifest.assets.filter(\.isPending).map(\.id))
+        guard !pending.isEmpty else { return }
+        for try await id in analyzer.allAssetIDs where pending.contains(id.rawValue) {
+            throw Failure("An interrupted or failed asset still has gallery data; restore it and rescan before listing, identifying, or exporting")
+        }
+    }
     public func people() async throws -> [Person] {
+        try await requireConsistentGallery()
         try await update(); let paths = Dictionary(uniqueKeysWithValues: manifest.assets.filter { !$0.isPending }.map { ($0.id, $0.path) }); let knownIDs = Set(manifest.assets.map(\.id)); var people: [Person] = []
         for try await (id, faces) in analyzer.allFacesByEntityID {
             guard faces.allSatisfy({ knownIDs.contains($0.assetID.rawValue) }) else { throw Failure("Analyzer contains assets missing from manifest") }
@@ -75,6 +85,7 @@ public final class FaceService {
         return people.sorted { $0.id < $1.id }
     }
     public func identify(_ url: URL) async throws -> [Identification] {
+        try await requireConsistentGallery()
         let path = canonical(url); _ = try metadata(path, id: "identify")
         var results: [Identification] = []; var received = false
         let input = MediaIntelligenceImageAsset(id: .init(UUID().uuidString), kind: .url(path))

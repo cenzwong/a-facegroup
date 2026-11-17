@@ -22,7 +22,7 @@ a-facegroup export ~/Pictures/Sorted --mode copy --apply
 # Alternatively: --mode symlink --apply
 ```
 
-Scanning is recursive by default (`--recursive` is accepted) and skips symlinks, including symlinked directories. JPEG, PNG and HEIC files are considered. Files with other extensions are ignored. Corrupt or unreadable supported files are reported as failures and scanning continues; the command exits nonzero if any fail. An unchanged path is skipped based on size and modification time; `--force` rechecks it. Moves and renames are treated as new assets. Partial scans never delete old assets. Images with no detected faces go to `No_Faces`; identification reports unmatched faces separately. A group photo can appear in multiple folders.
+Scanning is recursive by default (`--recursive` is accepted) and skips symlinks, including symlinked directories. JPEG, PNG and HEIC files are considered. Files with other extensions are ignored. Corrupt or unreadable supported files are reported as failures and scanning continues; the command exits nonzero if any fail. An unchanged path is skipped based on size and modification time; `--force` rechecks it. Moves and renames are treated as new assets. Partial scans never delete old assets. If an interrupted or failed update leaves pending data in the analyzer, listing, identification, and export require the affected photo to be restored and rescanned before returning results. Images with no detected faces go to `No_Faces`; identification reports unmatched faces separately. A group photo can appear in multiple folders.
 
 `--json` writes structured snake_case JSON to stdout, including when `--quiet` is set. Without JSON, `--quiet` suppresses results. Errors go to stderr. For example, identification may return:
 
