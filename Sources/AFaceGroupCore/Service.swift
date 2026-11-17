@@ -39,9 +39,15 @@ public final class FaceService {
                 else { var pending = asset; pending.pending = true; manifest.assets.append(pending) }
                 try manifest.save(manifestURL)
                 let input = MediaIntelligenceImageAsset(id: .init(asset.id), kind: .url(url))
-                var received = false
-                for try await (_, faces) in try await analyzer.insertOrUpdateAssets([input]) { asset.faceCount = faces.count; received = true }
-                guard received else { throw Failure("Analyzer returned no result") }
+                // Give each ingestion operation its own task lifetime so framework
+                // image buffers can be released before processing the next asset.
+                let count = try await Task { [analyzer, input] in
+                    var count: Int?
+                    for try await (_, faces) in try await analyzer.insertOrUpdateAssets([input]) { count = faces.count }
+                    guard let count else { throw Failure("Analyzer returned no result") }
+                    return count
+                }.value
+                asset.faceCount = count
                 if let index = manifest.assets.firstIndex(where: { $0.id == asset.id }) { manifest.assets[index] = asset }
                 try manifest.save(manifestURL); result.processed += 1
                 if asset.faceCount == 0 { result.noFaces += 1 }
