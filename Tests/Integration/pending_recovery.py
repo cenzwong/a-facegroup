@@ -48,8 +48,21 @@ with tempfile.TemporaryDirectory(prefix="a-facegroup-recovery-") as tmp:
     assert len(remaining) == 1 and remaining[0]["paths"] == [str(other)]
     assert hashlib.sha256(other.read_bytes()).digest() == original
     assert run("scan", photos)["processed"] == 1
+    link_id = pending()
+    assert link_id != asset_id
+    image.unlink()
+    image.symlink_to(other)
+    # Recovery selects the recorded path, not its new symlink target.
+    assert run("forget-pending", image)["asset_id"] == link_id
+    assert run("forget-pending", image, "--apply")["asset_id"] == link_id
+    assert image.is_symlink() and image.resolve() == other.resolve()
+    assert hashlib.sha256(other.read_bytes()).digest() == original
+    assert run("people", "list")["people"][0]["paths"] == [str(other)]
+    image.unlink()
+    shutil.copyfile(portrait, image)
+    assert run("scan", photos)["processed"] == 1
     new_id = pending()
-    assert new_id != asset_id
+    assert new_id != link_id
     image.unlink()  # Simulate a source that can no longer be restored.
     run("people", "list", success=False)
     assert run("forget-pending", image, "--apply")["asset_id"] == new_id

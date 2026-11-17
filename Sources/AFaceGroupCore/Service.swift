@@ -80,7 +80,9 @@ public final class FaceService {
     }
     /// Explicitly discard only a pending asset's stored analysis, never its source file.
     public func forgetPending(_ url: URL, apply: Bool) async throws -> PendingRemoval {
-        let path = canonical(url).path
+        // Resolve parent aliases but not the final component: it may have been
+        // replaced by a symlink since the pending path was recorded.
+        let path = canonical(url.deletingLastPathComponent()).appendingPathComponent(url.lastPathComponent).standardizedFileURL.path
         guard let index = manifest.assets.firstIndex(where: { $0.path == path && $0.isPending }) else {
             throw Failure("No pending asset at: \(path)")
         }
