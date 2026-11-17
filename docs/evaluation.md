@@ -25,3 +25,7 @@ AFACEGROUP_HOME=/path/to/new-library a-facegroup people list --json
 ```
 
 This set is far too small and homogeneous to estimate real-world recognition accuracy. A representative, consented or appropriately licensed collection with varied people, poses, lighting, group photos, and unseen identification images is still needed; report its merges, splits, unmatched faces, throughput, and memory separately.
+
+## Synthetic scale check
+
+On the same host, a release build scanned 1,000 distinct paths containing identical one-pixel PNGs into a fresh library, then scanned the directory again. The first run reported 1,000 processed and 1,000 no-face images in 8.04 seconds; the second reported 1,000 skipped and zero processed in 0.22 seconds. `/usr/bin/time -l` reported CLI-process maximum resident set sizes of 42,008,576 and 20,922,368 bytes respectively. Each result is one run and excludes any memory in separate system services. These tiny identical images exercise traversal, persistence and skip behavior; they are not representative of full-resolution photos, facial inference, clustering accuracy, or production throughput.
