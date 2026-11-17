@@ -1,15 +1,19 @@
 # Small labeled evaluation
 
-This is a reproducible starting set, separate from the repository and from the integration fixtures. The labels below are based on the source descriptions and each image contains one visible subject. The images are not bundled. NASA imagery has separate restrictions on insignia and endorsement; check each source before reuse. Each listed source describes the photograph as public domain in the United States.
+This is a reproducible starting set, separate from the repository and from the integration fixtures. The labels below are based on the source descriptions and each image contains one visible subject. The images are not bundled. NASA imagery has separate restrictions on insignia and endorsement; check each source before reuse. The sources describe these photographs as public domain in the United States, except the 1992 Jemison photo, which is marked no known copyright restrictions by Flickr Commons.
 
 | Local filename | Subject | Source | SHA-256 of tested file |
 | --- | --- | --- | --- |
 | `collins-1.png` | Eileen Collins | [scikit-image astronaut](https://scikit-image.org/docs/0.25.x/api/skimage.data.html#skimage.data.astronaut) | `88431cd9653ccd539741b555fb0a46b61558b301d4110412b5bc28b5e3ea6cb5` |
 | `collins-2.jpg` | Eileen Collins | [early NASA portrait](https://commons.wikimedia.org/wiki/File:Eileen_Collins,_early_NASA_portrait.jpg) | `4a44110fc5edd1c8cab491f02fc85964350727b6a67e66ffd59a6ede6e4814be` |
+| `jemison-1.jpg` | Mae Jemison | [1987 portrait](https://commons.wikimedia.org/wiki/File:Mae_Jemison_-_Official_portrait_of_1987_astronaut_candidate.jpg) | `620342c6bc8c0988fb68f5d16dbbad7a6f5939de26d17c16f9585733db3ee904` |
+| `jemison-2.jpg` | Mae Jemison | [1992 portrait](https://commons.wikimedia.org/wiki/File:Dr._Mae_C._Jemison,_First_African-American_Woman_in_Space_-_Flickr_-_NASA_on_The_Commons.jpg) | `d9c65f7002c478ac6574a7cbde5df58192f8a5f9cf16b6d03c6db4e310edd2ff` |
+| `ride-1.jpg` | Sally Ride | [1984 portrait](https://commons.wikimedia.org/wiki/File:Sally_Ride_in_1984.jpg) | `75ae1b79f32c6e979b6e9dff80cd3f5bcf5c1295e93dd97ae7f422eb959d7770` |
+| `ride-2.jpg` | Sally Ride | [later portrait](https://commons.wikimedia.org/wiki/File:DrSallyRide.jpg) | `43cf03e297e1b3fffaf971172812dbbfee1a062698ae11a873faa7b2629d03c9` |
 | `shepard-1.jpg` | Alan Shepard | [1960 portrait](https://commons.wikimedia.org/wiki/File:Alan_Shepard_in_1960.jpg) | `3f8ef484565605683cfe5b4aec510c165afafbfe00477899faecfb521a097488` |
 | `shepard-2.jpg` | Alan Shepard | [1962 portrait](https://commons.wikimedia.org/wiki/File:Alan_Shepard_1962_NASA_portrait.jpg) | `53d716f08d301b30894a6c1a00ffa1f21a6c6af03a9a4121b073f8c354ad75e0` |
 
-The tested Commons files were downloaded through `Special:FilePath` with `?width=600`; the service returned 960-pixel-wide JPEGs. Verify hashes because downloads or resizing may change. Keep the collection and labels in user-controlled storage. To fetch the exact tested bytes into a new directory, explicitly run `python3 scripts/fetch_evaluation_set.py /path/to/new-evaluation-directory`. This separate development script makes network requests, verifies each SHA-256, and refuses an existing destination; the CLI itself does not use it. If a source changes or a download fails, the newly created directory may contain a partial set.
+The Commons files were downloaded through `Special:FilePath` with `?width=600`; output dimensions vary. Verify hashes because downloads or resizing may change. Keep the collection and labels in user-controlled storage. To fetch the exact tested bytes into a new directory, explicitly run `python3 scripts/fetch_evaluation_set.py /path/to/new-evaluation-directory`. This separate development script makes network requests, verifies each SHA-256, and refuses an existing destination; the CLI itself does not use it. If a source changes or a download fails, the newly created directory may contain a partial set.
 
 ## Observed run
 
@@ -34,6 +38,10 @@ Use a fresh library containing only those labeled photos, save `a-facegroup peop
 
 This set is far too small and homogeneous to estimate real-world recognition accuracy. A representative, consented or appropriately licensed collection with varied people, poses, lighting, group photos, and unseen identification images is still needed; report its merges, splits, unmatched faces, throughput, and memory separately.
 
+## Expanded labeled check
+
+On the same macOS 27.0.1 host, the release CLI scanned all eight photos in a fresh library. Labels were checked against source descriptions and the images inspected for one visible subject each. The offline evaluator reported eight assigned photos, four clusters, zero unassigned photos, zero false-merge pairs, and zero false-split pairs. `/usr/bin/time -l` reported 0.50 seconds and 63,946,752 bytes peak CLI RSS (excluding separate system services). Four separate held-out checks each indexed the first portrait for one subject, identified their second portrait, and identified another subject’s second portrait. Each known face matched and each unknown face was unmatched. Repeat with `python3 Tests/Integration/expanded_identification.py /path/to/a-facegroup /path/to/eight-photo-set`. This remains a very small, selected collection of official portraits; it is not representative of a diverse real-world library, and the timing is a single observation.
+
 ## Synthetic scale check
 
 On the same host, a release build scanned 1,000 distinct paths containing identical one-pixel PNGs into a fresh library, then scanned the directory again. The first run reported 1,000 processed and 1,000 no-face images in 8.04 seconds; the second reported 1,000 skipped and zero processed in 0.22 seconds. `/usr/bin/time -l` reported CLI-process maximum resident set sizes of 42,008,576 and 20,922,368 bytes respectively. Each result is one run and excludes any memory in separate system services. These tiny identical images exercise traversal, persistence and skip behavior; they are not representative of full-resolution photos, facial inference, clustering accuracy, or production throughput.
@@ -47,7 +55,7 @@ The paths were hard links, not 1,000 distinct photographic inputs. On a filesyst
 ```python
 from pathlib import Path
 import os
-source = Path('/path/to/four-labeled-images')
+source = Path('/path/to/four-selected-labeled-images')
 destination = Path('/path/to/empty-test-directory')
 photos = sorted(source.iterdir())
 for n in range(1000):
