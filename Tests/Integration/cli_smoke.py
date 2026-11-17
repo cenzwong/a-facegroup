@@ -28,6 +28,24 @@ with tempfile.TemporaryDirectory(prefix="a-facegroup-integration-") as tmp:
     assert first["processed"] == 1 and not first["failures"], first
     second = run("scan", photos)
     assert second["skipped"] == 1, second
+    manifest_path = root / "library" / "manifest.json"
+    def read_manifest():
+        return json.loads(manifest_path.read_text())
+    asset_id = read_manifest()["assets"][0]["id"]
+    # Replacing an existing photo must update its original asset, not add a new one.
+    image.write_bytes(image.read_bytes() + b"\n")
+    changed = run("scan", photos)
+    assert changed["processed"] == 1 and len(read_manifest()["assets"]) == 1, changed
+    assert read_manifest()["assets"][0]["id"] == asset_id
+    forced = run("scan", photos, "--force")
+    assert forced["processed"] == 1 and read_manifest()["assets"][0]["id"] == asset_id
+    # Simulate an interrupted submission after its pending marker was saved.
+    state = read_manifest()
+    state["assets"][0]["modified"] = -1
+    manifest_path.write_text(json.dumps(state))
+    retried = run("scan", photos)
+    assert retried["processed"] == 1 and read_manifest()["assets"][0]["id"] == asset_id
+    original = hashlib.sha256(image.read_bytes()).digest()
     # Add a second asset and a no-face image, then reopen and regroup.
     second_image = photos / "second.png"
     shutil.copyfile(portrait, second_image)
@@ -59,5 +77,12 @@ with tempfile.TemporaryDirectory(prefix="a-facegroup-integration-") as tmp:
     failed = run("scan", photos, success=False)
     assert len(failed["failures"]) == 1, failed
     assert run("people", "list")["people"], "A failed asset hid the successful gallery"
+    pending = next(a for a in read_manifest()["assets"] if a["path"] == str(broken))
+    assert pending["modified"] == -1
+    # Repair the failed image and ensure the pending identifier is reused.
+    shutil.copyfile(portrait, broken)
+    repaired = run("scan", photos)
+    assert repaired["processed"] == 1 and not repaired["failures"], repaired
+    assert next(a for a in read_manifest()["assets"] if a["path"] == str(broken))["id"] == pending["id"]
     assert hashlib.sha256(image.read_bytes()).digest() == original
     print("Native scan, repeat, reopen, identify and export checks passed")
