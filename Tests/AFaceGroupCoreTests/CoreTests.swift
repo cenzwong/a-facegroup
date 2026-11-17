@@ -32,4 +32,19 @@ final class CoreTests: XCTestCase {
         let dest = root.appendingPathComponent("out"); let plan = try exportPlan(destination: dest, groups: ["one": [source.path]], scanRoots: [])
         try applyExport(plan, mode: "copy"); XCTAssertThrowsError(try applyExport(plan, mode: "copy")); XCTAssertEqual(try Data(contentsOf: source), Data("original".utf8))
     }
+    func testLockRejectsConcurrentLibraryAccess() throws {
+        let root = try temporary(); let path = root.appendingPathComponent("lock")
+        let lock = try LibraryLock(path)
+        XCTAssertThrowsError(try LibraryLock(path))
+        withExtendedLifetime(lock) {}
+    }
+    func testExistingExportIsPreservedAndRenamed() throws {
+        let root = try temporary(); let group = root.appendingPathComponent("out/person")
+        try FileManager.default.createDirectory(at: group, withIntermediateDirectories: true)
+        let existing = group.appendingPathComponent("x.jpg"); try Data("existing".utf8).write(to: existing)
+        let plan = try exportPlan(destination: root.appendingPathComponent("out"), groups: ["person": ["/a/x.jpg"]], scanRoots: [])
+        XCTAssertEqual(URL(fileURLWithPath: plan[0].destination).lastPathComponent, "x-2.jpg")
+        XCTAssertEqual(try Data(contentsOf: existing), Data("existing".utf8))
+    }
+
 }
