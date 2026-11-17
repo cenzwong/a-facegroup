@@ -24,6 +24,8 @@ with tempfile.TemporaryDirectory(prefix="a-facegroup-integration-") as tmp:
         assert (result.returncode == 0) == success, (args, result.returncode, result.stderr)
         assert "Detected face:" not in result.stderr, result.stderr
         return json.loads(result.stdout)
+    missing = subprocess.run([str(binary), "--json"], env=env, capture_output=True, text=True, timeout=120)
+    assert missing.returncode != 0 and not missing.stdout and "Missing command" in missing.stderr
     first = run("scan", photos)
     assert first["processed"] == 1 and not first["failures"], first
     second = run("scan", photos)
@@ -60,6 +62,12 @@ with tempfile.TemporaryDirectory(prefix="a-facegroup-integration-") as tmp:
     person = next(p for p in people if str(image) in p["paths"])
     assert person["face_count"] >= 1 and person["photo_count"] >= 1
     assert str(image) in run("people", "photos", person["id"])["photos"]
+    text_list = subprocess.run([str(binary), "people", "list"], env=env, capture_output=True, text=True, timeout=120, check=True)
+    assert person["id"] in text_list.stdout and "faces:" in text_list.stdout
+    text_photos = subprocess.run([str(binary), "people", "photos", person["id"]], env=env, capture_output=True, text=True, timeout=120, check=True)
+    assert str(image) in text_photos.stdout
+    quiet = subprocess.run([str(binary), "people", "list", "--quiet"], env=env, capture_output=True, text=True, timeout=120, check=True)
+    assert not quiet.stdout
     manifest = (root / "library" / "manifest.json").read_bytes()
     found = run("identify", image)
     assert any(f.get("entity_id") == person["id"] for f in found["faces"]), found
@@ -68,6 +76,8 @@ with tempfile.TemporaryDirectory(prefix="a-facegroup-integration-") as tmp:
     destination = root / "export"
     preview = run("export", destination)
     assert not preview["applied"] and not destination.exists()
+    text_preview = subprocess.run([str(binary), "export", str(destination)], env=env, capture_output=True, text=True, timeout=120, check=True)
+    assert "Preview:" in text_preview.stdout and str(image) in text_preview.stdout and not destination.exists()
     assert any(i["source"] == str(image) for i in preview["items"])
     assert any(i["source"] == str(no_face) and "/No_Faces/" in i["destination"] for i in preview["items"])
     written = run("export", destination, "--apply")
