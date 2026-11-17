@@ -8,7 +8,7 @@ final class CoreTests: XCTestCase {
         try fm.createDirectory(at: root.appendingPathComponent("nested"), withIntermediateDirectories: true)
         try Data().write(to: root.appendingPathComponent("nested/a.JPG")); try Data().write(to: root.appendingPathComponent("x.txt"))
         try fm.createSymbolicLink(at: root.appendingPathComponent("cycle"), withDestinationURL: root)
-        XCTAssertEqual(try discover(root).map(\.lastPathComponent), ["a.JPG"])
+        XCTAssertEqual(try discover(root).urls.map(\.lastPathComponent), ["a.JPG"])
     }
     func testManifestRoundTrip() throws {
         let root = try temporary(); let path = root.appendingPathComponent("manifest.json"); var manifest = Manifest()
@@ -91,6 +91,18 @@ final class CoreTests: XCTestCase {
         let plan = try exportPlan(destination: root.appendingPathComponent("out"), groups: ["person": ["/a/x.jpg"]], scanRoots: [])
         XCTAssertEqual(URL(fileURLWithPath: plan[0].destination).lastPathComponent, "x-2.jpg")
         XCTAssertEqual(try FileManager.default.destinationOfSymbolicLink(atPath: existing.path), "missing.jpg")
+    }
+
+    func testDiscoveryContinuesPastUnreadableDirectory() throws {
+        let root = try temporary(); let blocked = root.appendingPathComponent("blocked")
+        try FileManager.default.createDirectory(at: blocked, withIntermediateDirectories: true)
+        try Data().write(to: blocked.appendingPathComponent("hidden.jpg"))
+        try Data().write(to: root.appendingPathComponent("visible.jpg"))
+        try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: blocked.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: blocked.path) }
+        let result = try discover(root)
+        XCTAssertEqual(result.urls.map(\.lastPathComponent), ["visible.jpg"])
+        XCTAssertFalse(result.failures.isEmpty)
     }
 
 }

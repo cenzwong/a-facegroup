@@ -29,9 +29,10 @@ public final class FaceService {
     }
     public func scan(_ root: URL, force: Bool) async throws -> ScanResult {
         try Task.checkCancellation()
-        let root = canonical(root); let urls = try discover(root); var result = ScanResult()
+        let root = canonical(root); let discovery = try discover(root); var result = ScanResult()
+        result.failures = discovery.failures
         if !manifest.scanRoots.contains(root.path) { manifest.scanRoots.append(root.path); try manifest.save(manifestURL) }
-        for url in urls {
+        for url in discovery.urls {
             try Task.checkCancellation()
             let existing = manifest.assets.first { $0.path == url.path }
             do {

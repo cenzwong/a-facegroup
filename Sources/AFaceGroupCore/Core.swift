@@ -20,18 +20,25 @@ public struct Manifest: Codable {
 }
 public func canonical(_ url: URL) -> URL { url.standardizedFileURL.resolvingSymlinksInPath() }
 public func isWithin(_ child: URL, _ parent: URL) -> Bool { let c = canonical(child).path; let p = canonical(parent).path; return c == p || c.hasPrefix(p == "/" ? "/" : p + "/") }
-public func discover(_ root: URL) throws -> [URL] {
+public struct DiscoveryResult {
+    public let urls: [URL]
+    public let failures: [String]
+}
+public func discover(_ root: URL) throws -> DiscoveryResult {
     let fm = FileManager.default; var directory: ObjCBool = false
     guard fm.fileExists(atPath: root.path, isDirectory: &directory), directory.boolValue else { throw Failure("Scan path is not a directory: \(root.path)") }
     var urls: [URL] = []; var errors: [String] = []
     guard let enumerator = fm.enumerator(at: root, includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey], options: [], errorHandler: { url, error in errors.append("\(url.path): \(error.localizedDescription)"); return true }) else { throw Failure("Cannot enumerate \(root.path)") }
     for case let url as URL in enumerator {
-        let values = try url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
-        if values.isSymbolicLink == true { continue }
-        if values.isRegularFile == true && ["jpg", "jpeg", "png", "heic"].contains(url.pathExtension.lowercased()) { urls.append(canonical(url)) }
+        do {
+            let values = try url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+            if values.isSymbolicLink == true { continue }
+            if values.isRegularFile == true && ["jpg", "jpeg", "png", "heic"].contains(url.pathExtension.lowercased()) { urls.append(canonical(url)) }
+        } catch {
+            errors.append("\(url.path): \(error.localizedDescription)")
+        }
     }
-    if !errors.isEmpty { throw Failure(errors.joined(separator: "; ")) }
-    return Array(Set(urls)).sorted { $0.path < $1.path }
+    return DiscoveryResult(urls: Array(Set(urls)).sorted { $0.path < $1.path }, failures: errors)
 }
 public func metadata(_ url: URL, id: String) throws -> Asset {
     let values = try url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey, .isRegularFileKey])

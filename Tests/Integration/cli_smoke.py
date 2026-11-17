@@ -120,5 +120,18 @@ with tempfile.TemporaryDirectory(prefix="a-facegroup-integration-") as tmp:
     repaired = run("scan", photos)
     assert repaired["processed"] == 1 and not repaired["failures"], repaired
     assert next(a for a in read_manifest()["assets"] if a["path"] == str(broken))["id"] == pending["id"]
+    # An inaccessible subdirectory must not prevent ingesting readable images.
+    blocked = photos / "blocked"
+    blocked.mkdir()
+    shutil.copyfile(portrait, blocked / "hidden.png")
+    readable = photos / "readable.png"
+    shutil.copyfile(portrait, readable)
+    blocked.chmod(0)
+    try:
+        partial = run("scan", photos, success=False)
+        assert partial["processed"] == 1 and partial["failures"], partial
+        assert any(a["path"] == str(readable) and not a.get("pending") for a in read_manifest()["assets"])
+    finally:
+        blocked.chmod(0o700)
     assert hashlib.sha256(image.read_bytes()).digest() == original
     print("Native scan, repeat, reopen, identify and export checks passed")
