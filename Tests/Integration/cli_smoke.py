@@ -34,6 +34,8 @@ with tempfile.TemporaryDirectory(prefix="a-facegroup-integration-") as tmp:
     asset_id = read_manifest()["assets"][0]["id"]
     # Replacing an existing photo must update its original asset, not add a new one.
     image.write_bytes(image.read_bytes() + b"\n")
+    stale_export = subprocess.run([str(binary), "export", str(root / "stale-export"), "--apply", "--json"], env=env, capture_output=True, text=True, timeout=120)
+    assert stale_export.returncode != 0 and not (root / "stale-export").exists(), stale_export
     changed = run("scan", photos)
     assert changed["processed"] == 1 and len(read_manifest()["assets"]) == 1, changed
     assert read_manifest()["assets"][0]["id"] == asset_id

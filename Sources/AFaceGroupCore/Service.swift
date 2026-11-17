@@ -72,6 +72,8 @@ public final class FaceService {
         // Encode native IDs as hex to make arbitrary identifiers safe as folder names.
         for person in people { let folder = "Person_" + person.id.utf8.map { String(format: "%02x", $0) }.joined(); groups[folder] = person.paths }
         groups["No_Faces"] = manifest.assets.filter { $0.modified >= 0 && $0.faceCount == 0 }.map(\.path)
+        let exportedPaths = Set(groups.values.flatMap { $0 })
+        try validateExportSources(manifest.assets.filter { exportedPaths.contains($0.path) })
         return try exportPlan(destination: destination, groups: groups, scanRoots: manifest.scanRoots.map { URL(fileURLWithPath: $0) })
     }
 }

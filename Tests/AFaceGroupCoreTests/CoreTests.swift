@@ -47,4 +47,15 @@ final class CoreTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: existing), Data("existing".utf8))
     }
 
+    func testExportRejectsChangedOrMissingIndexedPhoto() throws {
+        let root = try temporary(); let photo = root.appendingPathComponent("photo.jpg")
+        try Data("before".utf8).write(to: photo)
+        let indexed = try metadata(photo, id: "id")
+        XCTAssertNoThrow(try validateExportSources([indexed]))
+        try Data("changed content".utf8).write(to: photo)
+        XCTAssertThrowsError(try validateExportSources([indexed]))
+        try FileManager.default.removeItem(at: photo)
+        XCTAssertThrowsError(try validateExportSources([indexed]))
+    }
+
 }

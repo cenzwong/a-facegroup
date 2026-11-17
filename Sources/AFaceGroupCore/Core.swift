@@ -36,6 +36,18 @@ public func metadata(_ url: URL, id: String) throws -> Asset {
     guard values.isRegularFile == true, let size = values.fileSize, let date = values.contentModificationDate else { throw Failure("Cannot read file metadata: \(url.path)") }
     return Asset(id: id, path: canonical(url).path, size: UInt64(size), modified: date.timeIntervalSince1970)
 }
+/// Refuse to export paths whose contents may no longer match the indexed faces.
+public func validateExportSources(_ assets: [Asset]) throws {
+    for asset in assets {
+        let url = URL(fileURLWithPath: asset.path)
+        let current: Asset
+        do { current = try metadata(url, id: asset.id) }
+        catch { throw Failure("Indexed photo is unavailable; rescan or restore it: \(asset.path)") }
+        guard current.path == asset.path, current.size == asset.size, current.modified == asset.modified else {
+            throw Failure("Indexed photo has changed; rescan before exporting: \(asset.path)")
+        }
+    }
+}
 public final class LibraryLock {
     private let fd: Int32
     public init(_ url: URL) throws {

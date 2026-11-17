@@ -30,7 +30,7 @@ Scanning is recursive by default (`--recursive` is accepted) and skips symlinks,
 {"faces": [{"entity_id": "native-id", "matched": true}, {"matched": false}], "total_faces": 2}
 ```
 
-Export defaults to a preview. `--apply` creates copies or symbolic links and never intentionally overwrites existing paths; filename collisions receive numeric suffixes. Existing destination contents can therefore change a later preview. Source and destination directories may not overlap. An interrupted export can leave already-created files in place; rerunning generates new collision-free names. Symbolic links refer to the original files and break if those files move.
+Export defaults to a preview. `--apply` creates copies or symbolic links and never intentionally overwrites existing paths; filename collisions receive numeric suffixes. Existing destination contents can therefore change a later preview. Source and destination directories may not overlap. Export refuses missing or changed indexed photos; restore them or rescan first. An interrupted export can leave already-created files in place; rerunning generates new collision-free names. Symbolic links refer to the original files and break if those files move.
 
 ## Data and privacy
 
