@@ -4,7 +4,9 @@ import Darwin
 public struct Failure: LocalizedError { public let message: String; public init(_ message: String) { self.message = message }; public var errorDescription: String? { message } }
 public struct Asset: Codable, Sendable {
     public var id: String; public var path: String; public var size: UInt64; public var modified: Double; public var faceCount: Int
-    public init(id: String, path: String, size: UInt64, modified: Double, faceCount: Int = 0) { self.id = id; self.path = path; self.size = size; self.modified = modified; self.faceCount = faceCount }
+    public var pending: Bool?
+    public var isPending: Bool { pending ?? (modified == -1) }
+    public init(id: String, path: String, size: UInt64, modified: Double, faceCount: Int = 0) { self.id = id; self.path = path; self.size = size; self.modified = modified; self.faceCount = faceCount; self.pending = false }
 }
 public struct Manifest: Codable {
     public var assets: [Asset] = []

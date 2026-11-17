@@ -33,10 +33,10 @@ public final class FaceService {
             let existing = manifest.assets.first { $0.path == url.path }
             do {
                 var asset = try metadata(url, id: existing?.id ?? UUID().uuidString)
-                if let existing, !force, existing.size == asset.size && existing.modified == asset.modified { result.skipped += 1; continue }
+                if let existing, !existing.isPending, !force, existing.size == asset.size && existing.modified == asset.modified { result.skipped += 1; continue }
                 // Persist the identifier before ingestion so interrupted runs retry the same asset.
-                if let index = manifest.assets.firstIndex(where: { $0.id == asset.id }) { manifest.assets[index].modified = -1 }
-                else { manifest.assets.append(Asset(id: asset.id, path: asset.path, size: 0, modified: -1)) }
+                if let index = manifest.assets.firstIndex(where: { $0.id == asset.id }) { manifest.assets[index].pending = true }
+                else { var pending = asset; pending.pending = true; manifest.assets.append(pending) }
                 try manifest.save(manifestURL)
                 let input = MediaIntelligenceImageAsset(id: .init(asset.id), kind: .url(url))
                 var received = false
@@ -50,7 +50,7 @@ public final class FaceService {
         try await update(); return result
     }
     public func people() async throws -> [Person] {
-        try await update(); let paths = Dictionary(uniqueKeysWithValues: manifest.assets.filter { $0.modified >= 0 }.map { ($0.id, $0.path) }); let knownIDs = Set(manifest.assets.map(\.id)); var people: [Person] = []
+        try await update(); let paths = Dictionary(uniqueKeysWithValues: manifest.assets.filter { !$0.isPending }.map { ($0.id, $0.path) }); let knownIDs = Set(manifest.assets.map(\.id)); var people: [Person] = []
         for try await (id, faces) in analyzer.allFacesByEntityID {
             guard faces.allSatisfy({ knownIDs.contains($0.assetID.rawValue) }) else { throw Failure("Analyzer contains assets missing from manifest") }
             let completeFaces = faces.filter { paths[$0.assetID.rawValue] != nil }
@@ -71,7 +71,7 @@ public final class FaceService {
         let people = try await people(); var groups: [String: [String]] = [:]
         // Encode native IDs as hex to make arbitrary identifiers safe as folder names.
         for person in people { let folder = "Person_" + person.id.utf8.map { String(format: "%02x", $0) }.joined(); groups[folder] = person.paths }
-        groups["No_Faces"] = manifest.assets.filter { $0.modified >= 0 && $0.faceCount == 0 }.map(\.path)
+        groups["No_Faces"] = manifest.assets.filter { !$0.isPending && $0.faceCount == 0 }.map(\.path)
         let exportedPaths = Set(groups.values.flatMap { $0 })
         try validateExportSources(manifest.assets.filter { exportedPaths.contains($0.path) })
         return try exportPlan(destination: destination, groups: groups, scanRoots: manifest.scanRoots.map { URL(fileURLWithPath: $0) })

@@ -43,7 +43,7 @@ with tempfile.TemporaryDirectory(prefix="a-facegroup-integration-") as tmp:
     assert forced["processed"] == 1 and read_manifest()["assets"][0]["id"] == asset_id
     # Simulate an interrupted submission after its pending marker was saved.
     state = read_manifest()
-    state["assets"][0]["modified"] = -1
+    state["assets"][0]["pending"] = True
     manifest_path.write_text(json.dumps(state))
     retried = run("scan", photos)
     assert retried["processed"] == 1 and read_manifest()["assets"][0]["id"] == asset_id
@@ -80,7 +80,7 @@ with tempfile.TemporaryDirectory(prefix="a-facegroup-integration-") as tmp:
     assert len(failed["failures"]) == 1, failed
     assert run("people", "list")["people"], "A failed asset hid the successful gallery"
     pending = next(a for a in read_manifest()["assets"] if a["path"] == str(broken))
-    assert pending["modified"] == -1
+    assert pending["pending"] is True
     # Repair the failed image and ensure the pending identifier is reused.
     shutil.copyfile(portrait, broken)
     repaired = run("scan", photos)

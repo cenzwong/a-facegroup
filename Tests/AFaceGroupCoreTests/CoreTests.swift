@@ -58,4 +58,14 @@ final class CoreTests: XCTestCase {
         XCTAssertThrowsError(try validateExportSources([indexed]))
     }
 
+    func testPendingStateDoesNotConfusePreEpochDates() throws {
+        let asset = Asset(id: "id", path: "/photo", size: 1, modified: -100, faceCount: 1)
+        XCTAssertFalse(asset.isPending)
+        var interrupted = asset; interrupted.pending = true
+        XCTAssertTrue(interrupted.isPending)
+        // Existing manifests used -1 as the pending marker and omit the new field.
+        let old = #"{"id":"id","path":"/photo","size":1,"modified":-1,"faceCount":0}"#.data(using: .utf8)!
+        XCTAssertTrue(try JSONDecoder().decode(Asset.self, from: old).isPending)
+    }
+
 }
